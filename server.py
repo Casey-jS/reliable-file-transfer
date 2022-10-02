@@ -1,23 +1,33 @@
+from curses import window
 import socket
+from sys import getsizeof
 import packet
 import pickle
 
-WINDOW_SIZE = 5
+SENDER_WINDOW_SIZE = 5
+LAST_ACKNOWLEDGEMENT_RECIEVED = -1
+LAST_FRAME_SENT = 0
+MAX_SEQ_NUM = SENDER_WINDOW_SIZE * 2
 CLIENT_ADDR = ("127.0.0.1", 8080)
-LAST_FRAME_SENT = -1
-LAST_ACK_RECEIVED = -1
 
+def get_packets(file_name):
 
-def get_five_packets(file_name):
-
-    data = open(file_name, 'rb')
     packets = []
+    seqNum = -1
 
-    while len(packets) != 5:
-        packt = packet.packet(len(packets), b'data', data.read(1024))
-        packets.append(packt)
-    
-    return packets
+    with open(file_name, 'rb') as data:
+        while True:
+            buf = data.read(1024) 
+            if not buf:
+                break
+            if(seqNum >= MAX_SEQ_NUM - 1):
+                seqNum = 0
+            else:
+                seqNum += 1
+            packt = packet.packet(seqNum, b'data', buf)
+            packets.append(packt)
+
+        return packets   
     
 
 if __name__ == "__main__":
@@ -36,7 +46,9 @@ if __name__ == "__main__":
     decoded_name = file_name.decode()
 
     # get array of packet objects
-    packets_to_send = get_five_packets(decoded_name)
+    packets_to_send = get_packets(decoded_name)
+
+
 
     for p in packets_to_send:
         print("Packet.data size before pickle: %d" % len(p.data))
@@ -46,6 +58,6 @@ if __name__ == "__main__":
         sock.sendto(pickle_packet, addr)
         print("sent packet %d to client" % p.seq_num)
 
-    while True:
-        ack, addr = sock.recvfrom(1024)
-        print("ack received:", int.from_bytes(ack, byteorder='little'))
+    # while True:
+    #     ack, addr = sock.recvfrom(1024)
+    #     print("ack received:", int.from_bytes(ack, byteorder='little'))
