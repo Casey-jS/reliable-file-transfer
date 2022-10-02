@@ -35,9 +35,9 @@ def receive(sock, filename):
                     # if the packet is shorter then expected, it's the last packet
                     if(len(packt.data) < 1024):
                         print("Sending Ack for packet: %d" % packt.seq_num)
+                        send_ack(packt.seq_num, sock, address)
                         processPacket(packt, file)
                         print("COMPLETE")
-                        send_ack(packt.seq_num, sock, address)
                         break
                     processPacket(packt, file)
                     print("Sending Ack for packet: %d" % packt.seq_num)
@@ -70,14 +70,14 @@ def send_ack(seq_num, sock, addr):
 
 if __name__ == "__main__":
 
-    # TODO - uncomment later, remove hardcode address
+    # TODO - uncomment later, remove hardcoded address
 
     # Asks for IP Address, Port number, and filename
-    ipAddress = input("Enter an IP Address: ")
+    # ipAddress = input("Enter an IP Address: ")
 
-    port = input("Enter a port number: ")
+    # port = input("Enter a port number: ")
 
-    SERVER_ADDR = (ipAddress, int(port))
+    # SERVER_ADDR = (ipAddress, int(port))
 
     filename = input("Enter a FileName: ")
 
