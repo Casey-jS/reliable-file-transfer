@@ -1,5 +1,5 @@
 
-from random import randrange
+import unreliable
 import pickle
 import socket
 import packet
@@ -40,10 +40,9 @@ def receive(sock, filename):
                         print("COMPLETE")
                         break
                     processPacket(packt, file)
-                    tempRand = randrange(10)
-                    if(tempRand < 6):
-                        print("Sending Ack for packet: %d" % packt.seq_num)
-                        send_ack(packt.seq_num, sock, address)
+                    print("Sending Ack for packet: %d" % packt.seq_num)
+                    unreliable.transfer_ack(sock, packt.seq_num, address)
+                    # send_ack(packt.seq_num, sock, address) Uncomment later
 
                     # set next expected sequence number and moves window accordingly
                     LAST_FRAME_RECIEVED = SeqNumToAck
