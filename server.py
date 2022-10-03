@@ -117,6 +117,8 @@ if __name__ == "__main__":
     # decode the name
     decoded_name = file_name.decode()
 
+    sock.sendto("FILE RECIEVED".encode(), addr)
+
     fp = open(decoded_name, 'rb')
 
     sendWindow = []

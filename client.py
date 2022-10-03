@@ -86,7 +86,17 @@ if __name__ == "__main__":
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     # send file name to server
-    sock.sendto(filename.encode(), SERVER_ADDR)
+    while True:
+        sock.sendto(filename.encode(), SERVER_ADDR)
+        sock.settimeout(2.0)
+        try:
+            fileAck, _ = sock.recvfrom(1024)
+            print(fileAck.decode())
+            break
+        except socket.timeout:
+            print("Resending filename")
+
+    sock.settimeout(None)
 
     receive(sock, "long.txt")
 
