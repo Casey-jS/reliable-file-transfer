@@ -1,5 +1,5 @@
 
-from concurrent.futures import process
+from random import randrange
 import pickle
 import socket
 import packet
@@ -26,8 +26,8 @@ def receive(sock, filename):
         pkt, address = sock.recvfrom(1099)
 
         packt: packet = pickle.loads(pkt)
-        
-        # If packet seq_num is below of window range, ack was lost and should be resent
+
+        # If packet seq_num is below of window range, ack was lost and should be re-sent
         if(LAST_FRAME_RECIEVED < packt.seq_num):
             if(packt.seq_num <= LARGEST_ACCEPTABLE_FRAME):
                 # if the packet is the next expected, send acknowledgement and process packet
@@ -40,8 +40,10 @@ def receive(sock, filename):
                         print("COMPLETE")
                         break
                     processPacket(packt, file)
-                    print("Sending Ack for packet: %d" % packt.seq_num)
-                    send_ack(packt.seq_num, sock, address)
+                    tempRand = randrange(10)
+                    if(tempRand < 6):
+                        print("Sending Ack for packet: %d" % packt.seq_num)
+                        send_ack(packt.seq_num, sock, address)
 
                     # set next expected sequence number and moves window accordingly
                     LAST_FRAME_RECIEVED = SeqNumToAck
@@ -59,8 +61,8 @@ def receive(sock, filename):
                     # if the packet is not the next packet expected but is within the window, put into buffer
                     bufferedAcks.append(packt)
                     print("Buffered Packet: %d" % packt.seq_num)
-
         else:
+            print("Re-Sending Ack for packet: %d" % packt.seq_num)
             send_ack(packt.seq_num, sock, address)
 
 
