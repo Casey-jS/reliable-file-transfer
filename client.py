@@ -100,7 +100,7 @@ if __name__ == "__main__":
 
         while True:
             sock.sendto(filename.encode(), SERVER_ADDR)
-            sock.settimeout(2.0)
+            sock.settimeout(.1)
             try:
                 fileAck, temp = sock.recvfrom(1024)
                 break

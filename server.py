@@ -84,20 +84,30 @@ def resend_packets(sendWindow, sock, addr, oldestPacketNum):
 
 def wrap_up(sendWindow, sock):
     print("WRAP UP")
+    address = None
     while(len(sendWindow) > 0):
-        ack, addr = sock.recvfrom(1024)
-        ackNum = int.from_bytes(ack, byteorder='little')
-        oldestPacketNum = find_oldest_packet(sendWindow)
-        if(ackNum - oldestPacketNum != 0):
-            print("Ack received: %d" % ackNum)
-            sendWindow = resend_packets(sendWindow, sock, addr, oldestPacketNum)
-        else:
-            print("Ack recieved: %d" % ackNum)
+        sock.settimeout(.1)
+        try:
+            ack, addr = sock.recvfrom(1024)
+            address = addr
+            print(addr)
+            ackNum = int.from_bytes(ack, byteorder='little')
+            oldestPacketNum = find_oldest_packet(sendWindow)
+            if(ackNum - oldestPacketNum != 0):
+                print("Ack received: %d" % ackNum)
+                sendWindow = resend_packets(sendWindow, sock, addr, oldestPacketNum)
+            else:
+                print("Ack recieved: %d" % ackNum)
+                for p in sendWindow:
+                    if p is None:
+                        break
+                    if p.seq_num == ackNum:
+                        sendWindow.remove(p)
+        except socket.timeout:
+            oldestPacketNum = find_oldest_packet(sendWindow)
             for p in sendWindow:
-                if p is None:
-                    break
-                if p.seq_num == ackNum:
-                    sendWindow.remove(p)
+                if p.seq_num == oldestPacketNum:
+                    send_packet(p, address, sock)
     return "BREAK"
 
 # When an ack is recieved, take corresponding packet out of the window,
