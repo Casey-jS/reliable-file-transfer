@@ -114,7 +114,7 @@ if __name__ == "__main__":
 
     sock.settimeout(None)
 
-    receive(sock, "long.txt")
+    receive(sock, "pic2.png")
 
     print("COMPLETE")
         

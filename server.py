@@ -4,6 +4,7 @@ import string
 import packet
 import pickle
 import time
+import unreliable
 
 SENDER_WINDOW_SIZE = 5
 MAX_SEQ_NUM = SENDER_WINDOW_SIZE * 2
@@ -27,6 +28,8 @@ def get_packet(data, seqNum):
 def find_oldest_packet(sendWindow):
     oldestPacketNum = sendWindow[0].seq_num
     for p in sendWindow:
+        if p is None:
+            break
         if p.seq_num < oldestPacketNum:
             oldestPacketNum = p.seq_num
     return oldestPacketNum
@@ -34,7 +37,7 @@ def find_oldest_packet(sendWindow):
 # sends packet, p, to address, addr, using sock 
 def send_packet(p, addr, sock):
     pickle_packet = pickle.dumps(p, pickle.HIGHEST_PROTOCOL)
-    sock.sendto(pickle_packet, addr)
+    unreliable.transfer(sock, pickle_packet, addr)
 
 def fill_window(sendWindow, fp):
     global LAST_FRAME_SENT
@@ -47,12 +50,14 @@ def fill_window(sendWindow, fp):
 def resend_packets(sendWindow, sock, addr, oldestPacketNum):
     global LAST_FRAME_SENT
     for p in sendWindow:
+        if p is None:
+            break
         if p.seq_num == oldestPacketNum:
             print("Re-sending packet: %d" % p.seq_num)
             send_packet(p, addr, sock)
             
     while(True):
-        sock.settimeout(.1)
+        sock.settimeout(.5)
         try:
             tempPackt, addr = sock.recvfrom(1024)
             tempAckNum = int.from_bytes(tempPackt, byteorder='little')
@@ -89,6 +94,8 @@ def wrap_up(sendWindow, sock):
         else:
             print("Ack recieved: %d" % ackNum)
             for p in sendWindow:
+                if p is None:
+                    break
                 if p.seq_num == ackNum:
                     sendWindow.remove(p)
     return "BREAK"
@@ -172,17 +179,26 @@ if __name__ == "__main__":
 
     # Sends packets current in the window
     for p in sendWindow:
+
         print("Sending Packet: %d" % p.seq_num)
         send_packet(p, addr, sock)
         LAST_FRAME_SENT += 1
     
     # waits for an ack
     while True:
-        print("AWAITING ACKNOWLEDGEMENTS")
-        ack, addr = sock.recvfrom(1024)
-        ackNum = int.from_bytes(ack, byteorder='little')
-        print("Ack received: %d" % ackNum)
-        sendWindow = ack_recieved(ackNum, sendWindow, fp, sock, addr) 
+        sock.settimeout(.1)
+        try:
+            print("AWAITING ACKNOWLEDGEMENTS")
+            ack, addr = sock.recvfrom(1024)
+            ackNum = int.from_bytes(ack, byteorder='little')
+            print("Ack received: %d" % ackNum)
+            sendWindow = ack_recieved(ackNum, sendWindow, fp, sock, addr)
+        except socket.timeout:
+            pkt = find_oldest_packet(sendWindow)
+            for p in sendWindow:
+                if p.seq_num == pkt:
+                    send_packet(p, addr, sock)
+
         if(sendWindow == "BREAK"):
             break
 
