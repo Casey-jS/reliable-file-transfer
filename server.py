@@ -1,9 +1,9 @@
 
 import socket
 import string
-from xmlrpc.server import SimpleXMLRPCRequestHandler
 import packet
 import pickle
+import time
 
 SENDER_WINDOW_SIZE = 5
 MAX_SEQ_NUM = SENDER_WINDOW_SIZE * 2
@@ -50,20 +50,31 @@ def resend_packets(sendWindow, sock, addr, oldestPacketNum):
         if p.seq_num == oldestPacketNum:
             print("Re-sending packet: %d" % p.seq_num)
             send_packet(p, addr, sock)
+            
     while(True):
-        tempPackt, addr = sock.recvfrom(1024)
-        tempAckNum = int.from_bytes(tempPackt, byteorder='little')
-        if(tempAckNum == oldestPacketNum):
-            print("Ack received: %d" % tempAckNum)
+        sock.settimeout(.1)
+        try:
+            tempPackt, addr = sock.recvfrom(1024)
+            tempAckNum = int.from_bytes(tempPackt, byteorder='little')
+            if(tempAckNum == oldestPacketNum):
+                print("Ack received: %d" % tempAckNum)
+                for p in sendWindow:
+                    if tempAckNum == p.seq_num:
+                        sendWindow.remove(p)
+                break
+            else:
+                print("Ack received: %d" % tempAckNum)
+                for p in sendWindow:
+                    if tempAckNum == p.seq_num:
+                        sendWindow.remove(p)
+
+        except socket.timeout:
             for p in sendWindow:
-                if tempAckNum == p.seq_num:
-                    sendWindow.remove(p)
-            break
-        else:
-            print("Ack received: %d" % tempAckNum)
-            for p in sendWindow:
-                if tempAckNum == p.seq_num:
-                    sendWindow.remove(p)
+                if p.seq_num == oldestPacketNum:
+                    print("Re-sending packet: %d" % p.seq_num)
+                    send_packet(p, addr, sock)
+            
+    sock.settimeout(None)
     return sendWindow
 
 def wrap_up(sendWindow, sock):
