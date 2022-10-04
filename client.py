@@ -24,7 +24,6 @@ def receive(sock, filename):
     
     while True:
         pkt, address = sock.recvfrom(1099)
-
         packt: packet = pickle.loads(pkt)
 
         # If packet seq_num is below of window range, ack was lost and should be re-sent
@@ -34,10 +33,20 @@ def receive(sock, filename):
                 if(packt.seq_num == SeqNumToAck):
                     # if the packet is shorter then expected, it's the last packet
                     if(len(packt.data) < 1024):
+                        LAST_FRAME_RECIEVED += 1
                         print("Sending Ack for packet: %d" % packt.seq_num)
                         send_ack(packt.seq_num, sock, address)
                         processPacket(packt, file)
-                        print("COMPLETE")
+                        while True:
+                            wrapUpPkt, address = sock.recvfrom(1099)
+                            wrapUpPackt: packet = pickle.loads(wrapUpPkt)
+                            if(wrapUpPackt.seq_num == -1):
+                                break
+                            else:
+                                if(LAST_FRAME_RECIEVED >= wrapUpPackt.seq_num):
+                                    print("Re-Sending Ack for packet: %d" % wrapUpPackt.seq_num)
+                                    send_ack(wrapUpPackt.seq_num, sock, address)
+        
                         break
                     processPacket(packt, file)
                     print("Sending Ack for packet: %d" % packt.seq_num)
@@ -62,7 +71,8 @@ def receive(sock, filename):
                     print("Buffered Packet: %d" % packt.seq_num)
         else:
             print("Re-Sending Ack for packet: %d" % packt.seq_num)
-            send_ack(packt.seq_num, sock, address)
+            # send_ack(packt.seq_num, sock, address)
+            unreliable.transfer_ack(sock, packt.seq_num, address)
 
 
 
@@ -80,26 +90,33 @@ if __name__ == "__main__":
 
     # SERVER_ADDR = (ipAddress, int(port))
 
-    filename = input("Enter a FileName: ")
 
     # create the socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     # send file name to server
     while True:
-        sock.sendto(filename.encode(), SERVER_ADDR)
-        sock.settimeout(2.0)
-        try:
-            fileAck, _ = sock.recvfrom(1024)
-            print(fileAck.decode())
+        filename = input("Enter a FileName: ")
+
+        while True:
+            sock.sendto(filename.encode(), SERVER_ADDR)
+            sock.settimeout(2.0)
+            try:
+                fileAck, temp = sock.recvfrom(1024)
+                break
+            except socket.timeout:
+                print("Resending filename")
+
+        if(fileAck.decode() == "SUCCESS"):
             break
-        except socket.timeout:
-            print("Resending filename")
+        else:
+            print("File was not opened")
 
     sock.settimeout(None)
 
     receive(sock, "long.txt")
 
+    print("COMPLETE")
         
 
 
