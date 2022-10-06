@@ -1,9 +1,7 @@
 
 import socket
-import string
 import packet
 import pickle
-import time
 import unreliable
 
 SENDER_WINDOW_SIZE = 5
@@ -82,15 +80,12 @@ def resend_packets(sendWindow, sock, addr, oldestPacketNum):
     sock.settimeout(None)
     return sendWindow
 
-def wrap_up(sendWindow, sock):
+def wrap_up(sendWindow, addr, sock):
     print("WRAP UP")
-    address = None
     while(len(sendWindow) > 0):
         sock.settimeout(.1)
         try:
             ack, addr = sock.recvfrom(1024)
-            address = addr
-            print(addr)
             ackNum = int.from_bytes(ack, byteorder='little')
             oldestPacketNum = find_oldest_packet(sendWindow)
             if(ackNum - oldestPacketNum != 0):
@@ -107,7 +102,7 @@ def wrap_up(sendWindow, sock):
             oldestPacketNum = find_oldest_packet(sendWindow)
             for p in sendWindow:
                 if p.seq_num == oldestPacketNum:
-                    send_packet(p, address, sock)
+                    send_packet(p, addr, sock)
     return "BREAK"
 
 # When an ack is recieved, take corresponding packet out of the window,
@@ -129,7 +124,7 @@ def ack_recieved(ackNum, sendWindow, fp, sock, addr):
                 else:
                     send_packet(p, addr, sock)
                     print("Sending Packet: %d" % p.seq_num)
-                    return wrap_up(sendWindow, sock)
+                    return wrap_up(sendWindow, addr, sock)
     else:
         for p in sendWindow:
             if p.seq_num == ackNum:
@@ -146,7 +141,7 @@ def ack_recieved(ackNum, sendWindow, fp, sock, addr):
                     sendWindow.append(packt)
                     send_packet(packt, addr, sock)
                     print("Sending Packet: %d" % packt.seq_num)
-                    return wrap_up(sendWindow, sock)
+                    return wrap_up(sendWindow, addr, sock)
     return sendWindow
  
 def get_file():
@@ -158,10 +153,10 @@ def get_file():
         decoded_name = file_name.decode()
         try:
             fp = open(decoded_name, 'rb')
-            sock.sendto("SUCCESS".encode(), addr)
             return fp, addr
         except IOError:
-            sock.sendto("ERROR".encode(), addr)
+            print("File could not be opened.")
+            exit()
 
 
 if __name__ == "__main__":
@@ -185,7 +180,7 @@ if __name__ == "__main__":
         if(packt != "BREAK"):
             sendWindow.append(packt)
         else:
-            wrap_up(sendWindow, sock)
+            wrap_up(sendWindow, addr, sock)
 
     # Sends packets current in the window
     for p in sendWindow:
@@ -196,7 +191,7 @@ if __name__ == "__main__":
     
     # waits for an ack
     while True:
-        sock.settimeout(.1)
+        sock.settimeout(.2)
         try:
             print("AWAITING ACKNOWLEDGEMENTS")
             ack, addr = sock.recvfrom(1024)

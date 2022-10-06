@@ -10,7 +10,7 @@ RECIEVE_WINDOW_SIZE = 5
 def processPacket(pkt, file):
     file.write(pkt.data)
 
-def receive(sock, filename):
+def receive(sock, filename, firstPkt, firstAddr):
 
     bufferedAcks = []
     SeqNumToAck = 0
@@ -23,8 +23,12 @@ def receive(sock, filename):
         print("Can't open %s" % filename)
     
     while True:
-        pkt, address = sock.recvfrom(1099)
-        packt: packet = pickle.loads(pkt)
+        if(LAST_FRAME_RECIEVED == -1):
+            address = firstAddr
+            packt: packet = pickle.loads(firstPkt)
+        else:
+            pkt, address = sock.recvfrom(1099)
+            packt: packet = pickle.loads(pkt)
 
         # If packet seq_num is below of window range, ack was lost and should be re-sent
         if(LAST_FRAME_RECIEVED < packt.seq_num):
@@ -62,6 +66,7 @@ def receive(sock, filename):
                         if packt.seq_num == SeqNumToAck:
                             processPacket(packt, file)
                             send_ack(packt.seq_num, sock, address)
+                            print("Sending Ack for packet: %d" % packt.seq_num)
                             LAST_FRAME_RECIEVED = SeqNumToAck
                             LARGEST_ACCEPTABLE_FRAME = LAST_FRAME_RECIEVED + RECIEVE_WINDOW_SIZE
                             SeqNumToAck += 1
@@ -95,26 +100,28 @@ if __name__ == "__main__":
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     # send file name to server
-    while True:
-        filename = input("Enter a FileName: ")
+   
+    filename = input("Enter a FileName: ")
 
-        while True:
-            sock.sendto(filename.encode(), SERVER_ADDR)
-            sock.settimeout(.1)
-            try:
-                fileAck, temp = sock.recvfrom(1024)
-                break
-            except socket.timeout:
-                print("Resending filename")
+    fileSendTries = 5
 
-        if(fileAck.decode() == "SUCCESS"):
+    while fileSendTries > 0:
+        sock.sendto(filename.encode(), SERVER_ADDR)
+        sock.settimeout(.5)
+        try:
+            pkt, address = sock.recvfrom(1099)
             break
-        else:
-            print("File was not opened")
+        except socket.timeout:
+            print("Resending filename")
+            fileSendTries -= 1
+
+    if(fileSendTries == 0):
+        print("File could not be opened, try again.")
+        exit()
 
     sock.settimeout(None)
 
-    receive(sock, "pic2.png")
+    receive(sock, "long.txt", pkt, address)
 
     print("COMPLETE")
         
