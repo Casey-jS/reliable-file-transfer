@@ -15,5 +15,5 @@ def transfer_ack(sock: socket.socket, seq_num, addr):
 
     r = random.randint(1, 5)
 
-    if r != 2:
+    if r == 2:
         sock.sendto(int.to_bytes(seq_num, 4, byteorder='little', signed=False), addr)

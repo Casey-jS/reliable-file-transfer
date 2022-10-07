@@ -5,7 +5,6 @@ import pickle
 import socket
 import packet
 
-SERVER_ADDR = ("127.0.0.1", 8080)
 RECIEVE_WINDOW_SIZE = 5
 
 def processPacket(pkt, file):
@@ -107,12 +106,11 @@ if __name__ == "__main__":
     # TODO - uncomment later, remove hardcoded address
 
     # Asks for IP Address, Port number, and filename
-    # ipAddress = input("Enter an IP Address: ")
+    ip = input("Enter server IP Address: ")
 
-    # port = input("Enter a port number: ")
+    port = int(input("Enter server port number: "))
 
-    # SERVER_ADDR = (ipAddress, int(port))
-
+    server_addr = (ip, port)
 
     # create the socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -124,7 +122,7 @@ if __name__ == "__main__":
     fileSendTries = 5
 
     while fileSendTries > 0:
-        sock.sendto(filename.encode(), SERVER_ADDR)
+        sock.sendto(filename.encode(), server_addr)
         sock.settimeout(.5)
         try:
             pkt, address = sock.recvfrom(1099)
@@ -138,8 +136,9 @@ if __name__ == "__main__":
         exit()
 
     sock.settimeout(None)
-
-    receive(sock, "long.txt", pkt, address)
+    print("File requested.")
+    file_to_write = input("What should the local file be called? (Including extension) ")
+    receive(sock, file_to_write, pkt, address)
 
     print("COMPLETE")
         

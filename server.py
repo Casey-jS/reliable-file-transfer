@@ -6,7 +6,6 @@ import unreliable
 
 SENDER_WINDOW_SIZE = 5
 MAX_SEQ_NUM = SENDER_WINDOW_SIZE * 2
-SERVER_ADDR = ("127.0.0.1", 8080)
 global LAST_FRAME_SENT
 
 def print_nums_in_window(sendWindow):
@@ -168,8 +167,13 @@ if __name__ == "__main__":
     # create socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
+    ip = input("Enter IP of client: ")
+    port = int(input("Enter port # of client: "))
+
+    client_addr = (ip, port)
+
     # bind to client address
-    sock.bind(SERVER_ADDR)
+    sock.bind(client_addr)
 
     # get file name from client
     fp, addr = get_file()
