@@ -1,4 +1,5 @@
 
+from textwrap import wrap
 import unreliable
 import pickle
 import socket
@@ -10,12 +11,27 @@ RECIEVE_WINDOW_SIZE = 5
 def processPacket(pkt, file):
     file.write(pkt.data)
 
+def wrap_up(sock, LAST_FRAME_RECIEVED):
+    print("WRAP UP")
+    while True:
+        sock.settimeout(1)
+        try:
+            wrapUpPkt, address = sock.recvfrom(1099)
+            wrapUpPackt: packet = pickle.loads(wrapUpPkt)
+            if(LAST_FRAME_RECIEVED >= wrapUpPackt.seq_num):
+                print("Re-Sending Ack for packet: %d" % wrapUpPackt.seq_num)
+                send_ack(wrapUpPackt.seq_num, sock, address)
+        except socket.timeout:
+            break
+    sock.settimeout(None)
+
 def receive(sock, filename, firstPkt, firstAddr):
 
     bufferedAcks = []
     SeqNumToAck = 0
     LARGEST_ACCEPTABLE_FRAME = RECIEVE_WINDOW_SIZE - 1
     LAST_FRAME_RECIEVED = -1
+    firstIteration = True
 
     try:
         file = open(filename, 'wb')
@@ -23,9 +39,10 @@ def receive(sock, filename, firstPkt, firstAddr):
         print("Can't open %s" % filename)
     
     while True:
-        if(LAST_FRAME_RECIEVED == -1):
+        if(firstIteration):
             address = firstAddr
             packt: packet = pickle.loads(firstPkt)
+            firstIteration = False
         else:
             pkt, address = sock.recvfrom(1099)
             packt: packet = pickle.loads(pkt)
@@ -41,16 +58,7 @@ def receive(sock, filename, firstPkt, firstAddr):
                         print("Sending Ack for packet: %d" % packt.seq_num)
                         send_ack(packt.seq_num, sock, address)
                         processPacket(packt, file)
-                        while True:
-                            wrapUpPkt, address = sock.recvfrom(1099)
-                            wrapUpPackt: packet = pickle.loads(wrapUpPkt)
-                            if(wrapUpPackt.seq_num == -1):
-                                break
-                            else:
-                                if(LAST_FRAME_RECIEVED >= wrapUpPackt.seq_num):
-                                    print("Re-Sending Ack for packet: %d" % wrapUpPackt.seq_num)
-                                    send_ack(wrapUpPackt.seq_num, sock, address)
-        
+                        wrap_up(sock, LAST_FRAME_RECIEVED)
                         break
                     processPacket(packt, file)
                     print("Sending Ack for packet: %d" % packt.seq_num)
@@ -62,18 +70,27 @@ def receive(sock, filename, firstPkt, firstAddr):
                     LARGEST_ACCEPTABLE_FRAME = LAST_FRAME_RECIEVED + RECIEVE_WINDOW_SIZE
                     SeqNumToAck += 1
 
+                    final = False
                     for packt in bufferedAcks:
                         if packt.seq_num == SeqNumToAck:
                             processPacket(packt, file)
-                            send_ack(packt.seq_num, sock, address)
-                            print("Sending Ack for packet: %d" % packt.seq_num)
-                            LAST_FRAME_RECIEVED = SeqNumToAck
-                            LARGEST_ACCEPTABLE_FRAME = LAST_FRAME_RECIEVED + RECIEVE_WINDOW_SIZE
-                            SeqNumToAck += 1
+                            if(len(packt.data) < 1024):
+                                wrap_up(sock, LAST_FRAME_RECIEVED)
+                                final = True
+                                break
+                            else:
+                                LAST_FRAME_RECIEVED = SeqNumToAck
+                                LARGEST_ACCEPTABLE_FRAME = LAST_FRAME_RECIEVED + RECIEVE_WINDOW_SIZE
+                                SeqNumToAck += 1
+                    if(final):
+                        break
                 else:
                     # if the packet is not the next packet expected but is within the window, put into buffer
-                    bufferedAcks.append(packt)
                     print("Buffered Packet: %d" % packt.seq_num)
+                    if(packt not in bufferedAcks):
+                        print("Sending Ack for packet: %d" % packt.seq_num)
+                        send_ack(packt.seq_num, sock, address)
+                        bufferedAcks.append(packt)
         else:
             print("Re-Sending Ack for packet: %d" % packt.seq_num)
             # send_ack(packt.seq_num, sock, address)

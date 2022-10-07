@@ -22,6 +22,7 @@ def get_packet(data, seqNum):
     if buf:
         packt = packet.packet(seqNum, b'data', buf)
         return packt 
+    return 1
 
 def find_oldest_packet(sendWindow):
     oldestPacketNum = sendWindow[0].seq_num
@@ -42,20 +43,20 @@ def fill_window(sendWindow, fp):
     while(len(sendWindow) < SENDER_WINDOW_SIZE):
         LAST_FRAME_SENT += 1
         packt = get_packet(fp, LAST_FRAME_SENT)
+        if(packt == 1):
+            break
         sendWindow.append(packt)
     return sendWindow
 
 def resend_packets(sendWindow, sock, addr, oldestPacketNum):
     global LAST_FRAME_SENT
     for p in sendWindow:
-        if p is None:
-            break
         if p.seq_num == oldestPacketNum:
             print("Re-sending packet: %d" % p.seq_num)
             send_packet(p, addr, sock)
             
     while(True):
-        sock.settimeout(.5)
+        sock.settimeout(.2)
         try:
             tempPackt, addr = sock.recvfrom(1024)
             tempAckNum = int.from_bytes(tempPackt, byteorder='little')
@@ -83,25 +84,27 @@ def resend_packets(sendWindow, sock, addr, oldestPacketNum):
 def wrap_up(sendWindow, addr, sock):
     print("WRAP UP")
     while(len(sendWindow) > 0):
-        sock.settimeout(.1)
+        sock.settimeout(.2)
         try:
             ack, addr = sock.recvfrom(1024)
             ackNum = int.from_bytes(ack, byteorder='little')
             oldestPacketNum = find_oldest_packet(sendWindow)
             if(ackNum - oldestPacketNum != 0):
+                for p in sendWindow:
+                    if p.seq_num == ackNum:
+                        sendWindow.remove(p)
                 print("Ack received: %d" % ackNum)
                 sendWindow = resend_packets(sendWindow, sock, addr, oldestPacketNum)
             else:
                 print("Ack recieved: %d" % ackNum)
                 for p in sendWindow:
-                    if p is None:
-                        break
                     if p.seq_num == ackNum:
                         sendWindow.remove(p)
         except socket.timeout:
             oldestPacketNum = find_oldest_packet(sendWindow)
             for p in sendWindow:
                 if p.seq_num == oldestPacketNum:
+                    print("Resending Packet: %d" % p.seq_num)
                     send_packet(p, addr, sock)
     return "BREAK"
 
@@ -200,6 +203,7 @@ if __name__ == "__main__":
             sendWindow = ack_recieved(ackNum, sendWindow, fp, sock, addr)
         except socket.timeout:
             pkt = find_oldest_packet(sendWindow)
+            print("Timeout - Resending Packet: %d" % pkt)
             for p in sendWindow:
                 if p.seq_num == pkt:
                     send_packet(p, addr, sock)
@@ -207,7 +211,5 @@ if __name__ == "__main__":
         if(sendWindow == "BREAK"):
             break
 
-    packt = packet.packet(-1, b'data', "")
-    send_packet(packt, addr, sock)
     print("FILE TRANSFERRED")
 
