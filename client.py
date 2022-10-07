@@ -18,7 +18,7 @@ def wrap_up(sock, LAST_FRAME_RECIEVED):
         try:
             wrapUpPkt, address = sock.recvfrom(1099)
             wrapUpPackt: packet = pickle.loads(wrapUpPkt)
-            if(LAST_FRAME_RECIEVED >= wrapUpPackt.seq_num):
+            if(LAST_FRAME_RECIEVED + 1 >= wrapUpPackt.seq_num):
                 print("Re-Sending Ack for packet: %d" % wrapUpPackt.seq_num)
                 send_ack(wrapUpPackt.seq_num, sock, address)
         except socket.timeout:
@@ -62,8 +62,7 @@ def receive(sock, filename, firstPkt, firstAddr):
                         break
                     processPacket(packt, file)
                     print("Sending Ack for packet: %d" % packt.seq_num)
-                    unreliable.transfer_ack(sock, packt.seq_num, address)
-                    # send_ack(packt.seq_num, sock, address) Uncomment later
+                    send_ack(packt.seq_num, sock, address) 
 
                     # set next expected sequence number and moves window accordingly
                     LAST_FRAME_RECIEVED = SeqNumToAck
@@ -71,9 +70,12 @@ def receive(sock, filename, firstPkt, firstAddr):
                     SeqNumToAck += 1
 
                     final = False
-                    for packt in bufferedAcks:
+                    for packt in list(bufferedAcks):
                         if packt.seq_num == SeqNumToAck:
                             processPacket(packt, file)
+                            print("Sending Ack for packet: %d" % packt.seq_num)
+                            send_ack(packt.seq_num, sock, address)
+                            print("Process Packet %d: " % packt.seq_num)
                             if(len(packt.data) < 1024):
                                 wrap_up(sock, LAST_FRAME_RECIEVED)
                                 final = True
@@ -82,24 +84,23 @@ def receive(sock, filename, firstPkt, firstAddr):
                                 LAST_FRAME_RECIEVED = SeqNumToAck
                                 LARGEST_ACCEPTABLE_FRAME = LAST_FRAME_RECIEVED + RECIEVE_WINDOW_SIZE
                                 SeqNumToAck += 1
+                            bufferedAcks.remove(packt)
                     if(final):
                         break
                 else:
                     # if the packet is not the next packet expected but is within the window, put into buffer
                     print("Buffered Packet: %d" % packt.seq_num)
                     if(packt not in bufferedAcks):
-                        print("Sending Ack for packet: %d" % packt.seq_num)
-                        send_ack(packt.seq_num, sock, address)
                         bufferedAcks.append(packt)
         else:
             print("Re-Sending Ack for packet: %d" % packt.seq_num)
-            # send_ack(packt.seq_num, sock, address)
-            unreliable.transfer_ack(sock, packt.seq_num, address)
+            send_ack(packt.seq_num, sock, address)
 
 
 
 def send_ack(seq_num, sock, addr):
-    sock.sendto(int.to_bytes(seq_num, 4, byteorder='little', signed=False), addr)
+    unreliable.transfer_ack(sock, seq_num, addr)
+    # sock.sendto(int.to_bytes(seq_num, 4, byteorder='little', signed=False), addr)
 
 if __name__ == "__main__":
 

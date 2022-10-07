@@ -37,6 +37,7 @@ def find_oldest_packet(sendWindow):
 def send_packet(p, addr, sock):
     pickle_packet = pickle.dumps(p, pickle.HIGHEST_PROTOCOL)
     unreliable.transfer(sock, pickle_packet, addr)
+    # sock.sendto(pickle_packet, addr)
 
 def fill_window(sendWindow, fp):
     global LAST_FRAME_SENT
