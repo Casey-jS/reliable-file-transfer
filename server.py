@@ -2,7 +2,6 @@
 import socket
 import packet
 import pickle
-import unreliable
 
 SENDER_WINDOW_SIZE = 5
 MAX_SEQ_NUM = SENDER_WINDOW_SIZE * 2
