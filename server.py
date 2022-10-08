@@ -35,8 +35,7 @@ def find_oldest_packet(sendWindow):
 # sends packet, p, to address, addr, using sock 
 def send_packet(p, addr, sock):
     pickle_packet = pickle.dumps(p, pickle.HIGHEST_PROTOCOL)
-    unreliable.transfer(sock, pickle_packet, addr)
-    # sock.sendto(pickle_packet, addr)
+    sock.sendto(pickle_packet, addr)
 
 def fill_window(sendWindow, fp):
     global LAST_FRAME_SENT
@@ -167,8 +166,8 @@ if __name__ == "__main__":
     # create socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    ip = input("Enter IP of client: ")
-    port = int(input("Enter port # of client: "))
+    ip = input("Enter IP of server: ")
+    port = int(input("Enter port # of server: "))
 
     client_addr = (ip, port)
 

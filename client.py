@@ -98,8 +98,7 @@ def receive(sock, filename, firstPkt, firstAddr):
 
 
 def send_ack(seq_num, sock, addr):
-    unreliable.transfer_ack(sock, seq_num, addr)
-    # sock.sendto(int.to_bytes(seq_num, 4, byteorder='little', signed=False), addr)
+    sock.sendto(int.to_bytes(seq_num, 4, byteorder='little', signed=False), addr)
 
 if __name__ == "__main__":
 
